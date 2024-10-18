@@ -35,9 +35,9 @@ class ImportableOldRevisionImporter implements OldRevisionImporter {
 		IConnectionProvider $dbProvider,
 		RevisionStore $revisionStore,
 		SlotRoleRegistry $slotRoleRegistry,
-		WikiPageFactory $wikiPageFactory = null,
-		PageUpdaterFactory $pageUpdaterFactory = null,
-		UserFactory $userFactory = null
+		?WikiPageFactory $wikiPageFactory = null,
+		?PageUpdaterFactory $pageUpdaterFactory = null,
+		?UserFactory $userFactory = null
 	) {
 		$this->doUpdates = $doUpdates;
 		$this->logger = $logger;
@@ -187,7 +187,7 @@ class ImportableOldRevisionImporter implements OldRevisionImporter {
 
 		$tags = $importableRevision->getTags();
 		if ( $tags !== [] ) {
-			ChangeTags::addTags( $tags, null, $inserted->getId() );
+			MediaWikiServices::getInstance()->getChangeTagsStore()->addTags( $tags, null, $inserted->getId() );
 		}
 
 		if ( $changed !== false && $this->doUpdates ) {

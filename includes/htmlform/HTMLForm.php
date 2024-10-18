@@ -631,7 +631,7 @@ class HTMLForm extends ContextSource {
 	 * @return HTMLFormField Instance of a subclass of HTMLFormField
 	 */
 	public static function loadInputFromParameters( $fieldname, $descriptor,
-		HTMLForm $parent = null
+		?HTMLForm $parent = null
 	) {
 		$class = static::getClassFromDescriptor( $fieldname, $descriptor );
 
@@ -1397,7 +1397,7 @@ class HTMLForm extends ContextSource {
 	 */
 	public function getHTML( $submitResult ) {
 		# For good measure (it is the default)
-		$this->getOutput()->setPreventClickjacking( true );
+		$this->getOutput()->getMetadata()->setPreventClickjacking( true );
 		$this->getOutput()->addModules( 'mediawiki.htmlform' );
 		$this->getOutput()->addModuleStyles( 'mediawiki.htmlform.styles' );
 

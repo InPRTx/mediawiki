@@ -25,12 +25,12 @@
 
 namespace MediaWiki\Api;
 
-use ChangeTags;
 use MediaWiki\Cache\LinkBatchFactory;
 use MediaWiki\CommentFormatter\CommentFormatter;
 use MediaWiki\Content\IContentHandlerFactory;
 use MediaWiki\Content\Renderer\ContentRenderer;
 use MediaWiki\Content\Transform\ContentTransformer;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\ParamValidator\TypeDef\UserDef;
 use MediaWiki\Parser\ParserFactory;
 use MediaWiki\Revision\RevisionRecord;
@@ -103,7 +103,7 @@ class ApiQueryDeletedRevisions extends ApiQueryRevisionsBase {
 		$this->linkBatchFactory = $linkBatchFactory;
 	}
 
-	protected function run( ApiPageSet $resultPageSet = null ) {
+	protected function run( ?ApiPageSet $resultPageSet = null ) {
 		$pageSet = $this->getPageSet();
 		$pageMap = $pageSet->getGoodAndMissingTitlesByNamespace();
 		$pageCount = count( $pageSet->getGoodAndMissingPages() );
@@ -137,7 +137,10 @@ class ApiQueryDeletedRevisions extends ApiQueryRevisionsBase {
 		}
 
 		if ( $this->fld_tags ) {
-			$this->addFields( [ 'ts_tags' => ChangeTags::makeTagSummarySubquery( 'archive' ) ] );
+			$this->addFields( [
+				'ts_tags' => MediaWikiServices::getInstance()->getChangeTagsStore()
+					->makeTagSummarySubquery( 'archive' )
+			] );
 		}
 
 		if ( $params['tag'] !== null ) {

@@ -232,11 +232,6 @@ class OutputPage extends ContextSource {
 	private $mIndicators = [];
 
 	/**
-	 * @var array<string,string> Array mapping interwiki prefix to (non DB key) Titles (e.g. 'fr' => 'Test page')
-	 */
-	private $mLanguageLinks = [];
-
-	/**
 	 * Used for JavaScript (predates ResourceLoader)
 	 * @todo We should split JS / CSS.
 	 * mScripts content is inserted as is in "<head>" by Skin. This might
@@ -372,13 +367,6 @@ class OutputPage extends ContextSource {
 	/** @var int Upper limit on mCdnMaxage */
 	protected $mCdnMaxageLimit = INF;
 
-	/**
-	 * @var bool Controls if anti-clickjacking / frame-breaking headers will
-	 * be sent. This should be done for pages where edit actions are possible.
-	 * Setter: $this->setPreventClickjacking()
-	 */
-	protected $mPreventClickjacking = true;
-
 	/** @var int|null To include the variable {{REVISIONID}} */
 	private $mRevisionId = null;
 
@@ -401,8 +389,6 @@ class OutputPage extends ContextSource {
 	 */
 	protected $styles = [];
 
-	/** @var string */
-	private $mIndexPolicy = 'index';
 	/** @var string */
 	private $mFollowPolicy = 'follow';
 
@@ -480,6 +466,16 @@ class OutputPage extends ContextSource {
 	private string $cspOutputMode = self::CSP_HEADERS;
 
 	/**
+	 * To eliminate redundancy between information kept in OutputPage
+	 * for non-article pages and metadata kept by the Parser for
+	 * article pages, we create a ParserOutput for the OutputPage
+	 * which will collect metadata such as categories, index policy,
+	 * modules, etc, even if no parse actually occurs during the
+	 * rendering of this page.
+	 */
+	private ParserOutput $metadata;
+
+	/**
 	 * @var array A cache of the names of the cookies that will influence the cache
 	 */
 	private static $cacheVaryCookies = null;
@@ -504,6 +500,8 @@ class OutputPage extends ContextSource {
 		$this->deprecatePublicProperty( 'mHideNewSectionLink', '1.38', __CLASS__ );
 		$this->deprecatePublicProperty( 'mNoGallery', '1.38', __CLASS__ );
 		$this->setContext( $context );
+		$this->metadata = new ParserOutput( null );
+		$this->metadata->setPreventClickjacking( true ); // OutputPage default
 		$this->CSP = new ContentSecurityPolicy(
 			$context->getRequest()->response(),
 			$context->getConfig(),
@@ -551,6 +549,19 @@ class OutputPage extends ContextSource {
 	 */
 	public function setStatusCode( $statusCode ) {
 		$this->mStatusCode = $statusCode;
+	}
+
+	/**
+	 * Return a ParserOutput that can be used to set metadata properties
+	 * for the current page.
+	 * @return ParserOutput
+	 */
+	public function getMetadata(): ParserOutput {
+		// We can deprecate the redundant
+		// methods on OutputPage which simply turn around
+		// and invoke the corresponding method on the metadata
+		// ParserOutput.
+		return $this->metadata;
 	}
 
 	/**
@@ -994,7 +1005,7 @@ class OutputPage extends ContextSource {
 		$policy = Article::formatRobotPolicy( $policy );
 
 		if ( isset( $policy['index'] ) ) {
-			$this->setIndexPolicy( $policy['index'] );
+			$this->metadata->setIndexPolicy( $policy['index'] );
 		}
 		if ( isset( $policy['follow'] ) ) {
 			$this->setFollowPolicy( $policy['follow'] );
@@ -1008,7 +1019,8 @@ class OutputPage extends ContextSource {
 	 * @return string
 	 */
 	public function getRobotPolicy() {
-		return "{$this->mIndexPolicy},{$this->mFollowPolicy}";
+		$indexPolicy = $this->getIndexPolicy();
+		return "{$indexPolicy},{$this->mFollowPolicy}";
 	}
 
 	/**
@@ -1050,11 +1062,11 @@ class OutputPage extends ContextSource {
 	 */
 	private function getRobotsContent(): string {
 		$robotOptionString = $this->formatRobotsOptions();
-		$robotArgs = ( $this->mIndexPolicy === 'index' &&
+		$robotArgs = ( $this->getIndexPolicy() === 'index' &&
 			$this->mFollowPolicy === 'follow' ) ?
 			[] :
 			[
-				$this->mIndexPolicy,
+				$this->getIndexPolicy(),
 				$this->mFollowPolicy,
 			];
 		if ( $robotOptionString ) {
@@ -1067,22 +1079,41 @@ class OutputPage extends ContextSource {
 	 * Set the index policy for the page, but leave the follow policy un-
 	 * touched.
 	 *
+	 * Since 1.43, setting 'index' after 'noindex' is deprecated.  In
+	 * a future release, index policy on OutputPage will behave as
+	 * it does in ParserOutput, where 'noindex' takes precedence.
+	 *
 	 * @param string $policy Either 'index' or 'noindex'.
+	 * @deprecated since 1.43; use ->getMetadata()->setIndexPolicy()
+	 *   but see note above about the change in behavior when setting
+	 *   'index' after 'noindex'.
 	 */
 	public function setIndexPolicy( $policy ) {
 		$policy = trim( $policy );
-		if ( in_array( $policy, [ 'index', 'noindex' ] ) ) {
-			$this->mIndexPolicy = $policy;
+		if ( $policy === 'index' && $this->metadata->getIndexPolicy() === 'noindex' ) {
+			wfDeprecated( __METHOD__ . ' with index after noindex', '1.43' );
+			// ParserOutput::setIndexPolicy has noindex take precedence
+			// (T16899) but the OutputPage version did not.  Preserve
+			// the behavior but deprecate it for future removal.
+			$this->metadata->setOutputFlag( ParserOutputFlags::NO_INDEX_POLICY, false );
 		}
+		$this->metadata->setIndexPolicy( $policy );
 	}
 
 	/**
 	 * Get the current index policy for the page as a string.
 	 *
 	 * @return string
+	 * @deprecated since 1.43; use ->getMetadata()->getIndexPolicy()
 	 */
 	public function getIndexPolicy() {
-		return $this->mIndexPolicy;
+		// Unlike ParserOutput, in OutputPage getIndexPolicy() defaults to
+		// 'index' if unset.
+		$policy = $this->metadata->getIndexPolicy();
+		if ( $policy === '' ) {
+			$policy = 'index';
+		}
+		return $policy;
 	}
 
 	/**
@@ -1570,19 +1601,9 @@ class OutputPage extends ContextSource {
 	public function addLanguageLinks( array $newLinkArray ) {
 		# $newLinkArray is in order of appearance on the page;
 		# deduplicate so only the first for a given prefix is used
-		# (T26502)
-		foreach ( $newLinkArray as $item ) {
-			if ( is_string( $item ) ) {
-				[ $prefix, $title ] = explode( ':', $item, 2 );
-				# note that $title may have a fragment
-			} else {
-				$prefix = $item->getInterwiki();
-				$title = $item->getText();
-				if ( $item->getFragment() !== '' ) {
-					$title .= '#' . $item->getFragment();
-				}
-			}
-			$this->mLanguageLinks[$prefix] ??= $title;
+		# using code in ParserOutput (T26502)
+		foreach ( $newLinkArray as $t ) {
+			$this->metadata->addLanguageLink( $t );
 		}
 	}
 
@@ -1596,8 +1617,7 @@ class OutputPage extends ContextSource {
 	 * or replace language links from the output page.
 	 */
 	public function setLanguageLinks( array $newLinkArray ) {
-		$this->mLanguageLinks = [];
-		$this->addLanguageLinks( $newLinkArray );
+		$this->metadata->setLanguageLinks( $newLinkArray );
 	}
 
 	/**
@@ -1606,11 +1626,7 @@ class OutputPage extends ContextSource {
 	 * @return string[] Array of interwiki-prefixed (non DB key) titles (e.g. 'fr:Test page')
 	 */
 	public function getLanguageLinks() {
-		$result = [];
-		foreach ( $this->mLanguageLinks as $prefix => $title ) {
-			$result[] = "$prefix:$title";
-		}
-		return $result;
+		return $this->metadata->getLanguageLinks();
 	}
 
 	/**
@@ -2156,7 +2172,7 @@ class OutputPage extends ContextSource {
 	 * @since 1.32
 	 */
 	public function addWikiTextAsInterface(
-		$text, $linestart = true, PageReference $title = null
+		$text, $linestart = true, ?PageReference $title = null
 	) {
 		$title ??= $this->getTitle();
 		if ( $title === null ) {
@@ -2206,7 +2222,7 @@ class OutputPage extends ContextSource {
 	 * @since 1.32
 	 */
 	public function addWikiTextAsContent(
-		$text, $linestart = true, PageReference $title = null
+		$text, $linestart = true, ?PageReference $title = null
 	) {
 		$title ??= $this->getTitle();
 		if ( !$title ) {
@@ -2395,8 +2411,9 @@ class OutputPage extends ContextSource {
 		$this->addModules( $parserOutput->getModules() );
 		$this->addModuleStyles( $parserOutput->getModuleStyles() );
 		$this->addJsConfigVars( $parserOutput->getJsConfigVars() );
-		$this->mPreventClickjacking = $this->mPreventClickjacking
-			|| $parserOutput->getPreventClickjacking();
+		if ( $parserOutput->getPreventClickjacking() ) {
+			$this->metadata->setPreventClickjacking( true );
+		}
 		$scriptSrcs = $parserOutput->getExtraCSPScriptSrcs();
 		foreach ( $scriptSrcs as $src ) {
 			$this->getCSP()->addScriptSrc( $src );
@@ -2463,11 +2480,10 @@ class OutputPage extends ContextSource {
 		// Link flags are ignored for now, but may in the future be
 		// used to mark individual language links.
 		$linkFlags = [];
-		$languageLinks = $this->getLanguageLinks();
+		$languageLinks = $this->metadata->getLanguageLinks();
 		// This hook can be used to remove/replace language links
 		$this->getHookRunner()->onLanguageLinks( $this->getTitle(), $languageLinks, $linkFlags );
-		$this->mLanguageLinks = [];
-		$this->addLanguageLinks( $languageLinks );
+		$this->metadata->setLanguageLinks( $languageLinks );
 
 		$this->getHookRunner()->onOutputPageParserOutput( $this, $parserOutput );
 
@@ -2895,9 +2911,10 @@ class OutputPage extends ContextSource {
 	 *  appropriate for edit pages to be sent.
 	 *
 	 * @since 1.38
+	 * @deprecated since 1.43; use ->getMetadata()->setPreventClickjacking()
 	 */
 	public function setPreventClickjacking( bool $enable ) {
-		$this->mPreventClickjacking = $enable;
+		$this->metadata->setPreventClickjacking( $enable );
 	}
 
 	/**
@@ -2905,9 +2922,10 @@ class OutputPage extends ContextSource {
 	 *
 	 * @since 1.24
 	 * @return bool
+	 * @deprecated since 1.43; use ->getMetadata()->getPreventClickjacking()
 	 */
 	public function getPreventClickjacking() {
-		return $this->mPreventClickjacking;
+		return $this->metadata->getPreventClickjacking();
 	}
 
 	/**
@@ -2921,7 +2939,10 @@ class OutputPage extends ContextSource {
 		$config = $this->getConfig();
 		if ( $config->get( MainConfigNames::BreakFrames ) ) {
 			return 'DENY';
-		} elseif ( $this->mPreventClickjacking && $config->get( MainConfigNames::EditPageFrameOptions ) ) {
+		} elseif (
+			$this->metadata->getPreventClickjacking() &&
+			$config->get( MainConfigNames::EditPageFrameOptions )
+		) {
 			return $config->get( MainConfigNames::EditPageFrameOptions );
 		}
 		return false;
@@ -3407,7 +3428,7 @@ class OutputPage extends ContextSource {
 	 * @return string
 	 * @return-taint tainted
 	 */
-	public function formatPermissionStatus( PermissionStatus $status, string $action = null ): string {
+	public function formatPermissionStatus( PermissionStatus $status, ?string $action = null ): string {
 		if ( $status->isGood() ) {
 			return '';
 		}

@@ -36,6 +36,7 @@ use MediaWiki\Html\TemplateParser;
 use MediaWiki\Linker\Linker;
 use MediaWiki\Linker\LinkRenderer;
 use MediaWiki\MainConfigNames;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Parser\Sanitizer;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\RevisionStore;
@@ -409,7 +410,7 @@ abstract class ContributionsPager extends RangeChronologicalPager {
 			$queryInfo['fields'][] = $indexField;
 		}
 
-		ChangeTags::modifyDisplayQuery(
+		MediaWikiServices::getInstance()->getChangeTagsStore()->modifyDisplayQuery(
 			$queryInfo['tables'],
 			$queryInfo['fields'],
 			$queryInfo['conds'],
@@ -820,7 +821,6 @@ abstract class ContributionsPager extends RangeChronologicalPager {
 	 * @return string
 	 */
 	protected function formatComment( $row ) {
-		$dir = $this->getLanguage()->getDir();
 		$comment = $this->formattedComments[$row->{$this->revisionIdField}];
 
 		if ( $comment === '' ) {
@@ -828,8 +828,7 @@ abstract class ContributionsPager extends RangeChronologicalPager {
 			$comment = "<span class=\"comment mw-comment-none\">$defaultComment</span>";
 		}
 
-		$comment = Html::rawElement( 'bdi', [ 'dir' => $dir ], $comment );
-
+		// Don't wrap result of this with <bdi> or any other element, see T377555
 		return $comment;
 	}
 

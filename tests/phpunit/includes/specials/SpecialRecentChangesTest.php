@@ -186,7 +186,7 @@ class SpecialRecentChangesTest extends AbstractChangesListSpecialPageTestCase {
 	 * check for syntax errors etc. It doesn't verify the logic.
 	 */
 	public function testIsDenseTagFilter() {
-		ChangeTags::defineTag( 'rc-test-tag' );
+		$this->getServiceContainer()->getChangeTagsStore()->defineTag( 'rc-test-tag' );
 		$req = new FauxRequest();
 		$req->setVal( 'tagfilter', 'rc-test-tag' );
 		$page = $this->getPage();
@@ -213,7 +213,7 @@ class SpecialRecentChangesTest extends AbstractChangesListSpecialPageTestCase {
 	 * @dataProvider provideDenseTagFilter
 	 */
 	public function testDenseTagFilter( $dense ) {
-		ChangeTags::defineTag( 'rc-test-tag' );
+		$this->getServiceContainer()->getChangeTagsStore()->defineTag( 'rc-test-tag' );
 		$req = new FauxRequest();
 		$req->setVal( 'tagfilter', 'rc-test-tag' );
 
@@ -227,9 +227,9 @@ class SpecialRecentChangesTest extends AbstractChangesListSpecialPageTestCase {
 
 			public function __construct(
 				$dense,
-				WatchedItemStoreInterface $watchedItemStore = null,
-				MessageCache $messageCache = null,
-				\MediaWiki\User\Options\UserOptionsLookup $userOptionsLookup = null
+				?WatchedItemStoreInterface $watchedItemStore = null,
+				?MessageCache $messageCache = null,
+				?\MediaWiki\User\Options\UserOptionsLookup $userOptionsLookup = null
 			) {
 				parent::__construct( $watchedItemStore, $messageCache, $userOptionsLookup );
 				$this->dense = $dense;

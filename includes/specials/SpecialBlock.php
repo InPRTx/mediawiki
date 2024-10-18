@@ -107,7 +107,7 @@ class SpecialBlock extends FormSpecialPage {
 	/**
 	 * @var array <mixed,mixed> An associative array used to pass vars to Codex form
 	 */
-	protected $codexFormData = [];
+	protected array $codexFormData = [];
 
 	private NamespaceInfo $namespaceInfo;
 
@@ -152,7 +152,6 @@ class SpecialBlock extends FormSpecialPage {
 		parent::execute( $par );
 
 		if ( $this->useCodex ) {
-			$this->codexFormData[ 'blockAlreadyBlocked' ] = $this->alreadyBlocked;
 			$this->codexFormData[ 'blockTargetUser' ] = $this->target instanceof UserIdentity ?
 				$this->target->getName() :
 				$this->target ?? null;
@@ -212,12 +211,18 @@ class SpecialBlock extends FormSpecialPage {
 		$this->requestedHideUser = $request->getBool( 'wpHideUser' );
 
 		if ( $this->useCodex ) {
-			$expiry = date_parse( $request->getVal( 'wpExpiry', '' ) );
-			$this->codexFormData[ 'blockExpiryPreset' ] = isset( $expiry[ 'relative' ] ) ?
-				// Relative expiry (e.g. '1 week')
-				$expiry :
-				// Absolute expiry, formatted for <input type="datetime-local">
-				$this->formatExpiryForHtml( $request->getVal( 'wpExpiry', '' ) );
+			// Parse wpExpiry param
+			$givenExpiry = $request->getVal( 'wpExpiry', '' );
+			if ( wfIsInfinity( $givenExpiry ) ) {
+				$this->codexFormData[ 'blockExpiryPreset' ] = 'infinite';
+			} else {
+				$expiry = date_parse( $givenExpiry );
+				$this->codexFormData[ 'blockExpiryPreset' ] = isset( $expiry[ 'relative' ] ) ?
+					// Relative expiry (e.g. '1 week')
+					$givenExpiry :
+					// Absolute expiry, formatted for <input type="datetime-local">
+					$this->formatExpiryForHtml( $request->getVal( 'wpExpiry', '' ) );
+			}
 
 			$this->codexFormData[ 'blockTypePreset' ] =
 				$request->getVal( 'wpEditingRestriction' ) === 'sitewide' ||
@@ -661,6 +666,7 @@ class SpecialBlock extends FormSpecialPage {
 			}
 
 			$this->alreadyBlocked = true;
+			$this->codexFormData[ 'blockAlreadyBlocked' ] = $this->alreadyBlocked;
 			$this->preErrors[] = $this->msg( 'ipb-needreblock', wfEscapeWikiText( $block->getTargetName() ) );
 		}
 
@@ -1091,7 +1097,7 @@ class SpecialBlock extends FormSpecialPage {
 	 *     suggestions
 	 * @return string[]
 	 */
-	public static function getSuggestedDurations( Language $lang = null, $includeOther = true ) {
+	public static function getSuggestedDurations( ?Language $lang = null, $includeOther = true ) {
 		wfDeprecated( __METHOD__, '1.42' );
 		$lang ??= MediaWikiServices::getInstance()->getContentLanguage();
 		return $lang->getBlockDurations( $includeOther );
@@ -1134,7 +1140,7 @@ class SpecialBlock extends FormSpecialPage {
 	 * @param HTMLForm|null $form
 	 * @return bool|string|array|Status As documented for HTMLForm::trySubmit.
 	 */
-	public function onSubmit( array $data, HTMLForm $form = null ) {
+	public function onSubmit( array $data, ?HTMLForm $form = null ) {
 		return self::processFormInternal(
 			$data,
 			$this->getAuthority(),

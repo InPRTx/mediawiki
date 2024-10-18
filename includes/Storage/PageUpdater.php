@@ -20,7 +20,6 @@
 
 namespace MediaWiki\Storage;
 
-use ChangeTags;
 use InvalidArgumentException;
 use LogicException;
 use ManualLogEntry;
@@ -35,6 +34,7 @@ use MediaWiki\Deferred\DeferredUpdates;
 use MediaWiki\HookContainer\HookContainer;
 use MediaWiki\HookContainer\HookRunner;
 use MediaWiki\MainConfigNames;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\PageIdentity;
 use MediaWiki\Page\WikiPageFactory;
 use MediaWiki\Revision\MutableRevisionRecord;
@@ -228,7 +228,7 @@ class PageUpdater {
 	 * @param TitleFormatter $titleFormatter
 	 * @param ServiceOptions $serviceOptions
 	 * @param string[] $softwareTags Array of currently enabled software change tags. Can be
-	 *        obtained from ChangeTags::getSoftwareTags()
+	 *        obtained from ChangeTagsStore->getSoftwareTags()
 	 * @param LoggerInterface $logger
 	 * @param WikiPageFactory $wikiPageFactory
 	 */
@@ -636,7 +636,7 @@ class PageUpdater {
 	public function markAsRevert(
 		int $revertMethod,
 		int $newestRevertedRevId,
-		int $revertAfterRevId = null
+		?int $revertAfterRevId = null
 	) {
 		$this->editResultBuilder->markAsRevert(
 			$revertMethod, $newestRevertedRevId, $revertAfterRevId
@@ -1420,7 +1420,8 @@ class PageUpdater {
 					$editResult
 				);
 			} else {
-				ChangeTags::addTags( $tags, null, $newRevisionRecord->getId(), null );
+				MediaWikiServices::getInstance()->getChangeTagsStore()
+					->addTags( $tags, null, $newRevisionRecord->getId(), null );
 			}
 
 			$this->userEditTracker->incrementUserEditCount( $this->author );
@@ -1541,7 +1542,8 @@ class PageUpdater {
 				$tags
 			);
 		} else {
-			ChangeTags::addTags( $tags, null, $newRevisionRecord->getId(), null );
+			MediaWikiServices::getInstance()->getChangeTagsStore()
+				->addTags( $tags, null, $newRevisionRecord->getId(), null );
 		}
 
 		$this->userEditTracker->incrementUserEditCount( $this->author );

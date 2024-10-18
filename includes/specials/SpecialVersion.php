@@ -123,7 +123,7 @@ class SpecialVersion extends SpecialPage {
 		$this->setHeaders();
 		$this->outputHeader();
 		$out = $this->getOutput();
-		$out->setPreventClickjacking( false );
+		$out->getMetadata()->setPreventClickjacking( false );
 
 		// Explode the subpage information into useful bits
 		$parts = explode( '/', (string)$par );
@@ -1227,7 +1227,7 @@ class SpecialVersion extends SpecialPage {
 		return implode( "\n", $ret );
 	}
 
-	private function openExtType( string $text = null, string $name = null ) {
+	private function openExtType( ?string $text = null, ?string $name = null ) {
 		$out = '';
 
 		$opt = [ 'class' => 'wikitable plainlinks mw-installed-software' ];

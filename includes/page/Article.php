@@ -496,7 +496,7 @@ class Article implements Page {
 
 		$outputPage->setArticleFlag( true );
 		# Allow frames by default
-		$outputPage->setPreventClickjacking( false );
+		$outputPage->getMetadata()->setPreventClickjacking( false );
 
 		$parserOptions = $this->getParserOptions();
 
@@ -895,7 +895,7 @@ class Article implements Page {
 
 		# Check for any __NOINDEX__ tags on the page using $pOutput
 		$policy = $this->getRobotPolicy( 'view', $pOutput ?: null );
-		$outputPage->setIndexPolicy( $policy['index'] );
+		$outputPage->getMetadata()->setIndexPolicy( $policy['index'] );
 		$outputPage->setFollowPolicy( $policy['follow'] ); // FIXME: test this
 
 		$this->mParserOutput = $pOutput;
@@ -1092,7 +1092,7 @@ class Article implements Page {
 	 * @return string[] The policy that should be set
 	 * @todo actions other than 'view'
 	 */
-	public function getRobotPolicy( $action, ParserOutput $pOutput = null ) {
+	public function getRobotPolicy( $action, ?ParserOutput $pOutput = null ) {
 		$context = $this->getContext();
 		$mainConfig = $context->getConfig();
 		$articleRobotPolicies = $mainConfig->get( MainConfigNames::ArticleRobotPolicies );
@@ -1452,7 +1452,7 @@ class Article implements Page {
 			return false;
 		}
 
-		$outputPage->setPreventClickjacking( true );
+		$outputPage->getMetadata()->setPreventClickjacking( true );
 		$outputPage->addModules( 'mediawiki.misc-authed-curate' );
 
 		$link = $this->linkRenderer->makeKnownLink(
@@ -1612,7 +1612,7 @@ class Article implements Page {
 
 		// Also apply the robot policy for nonexisting pages (even if a 404 was used)
 		$policy = $this->getRobotPolicy( 'view' );
-		$outputPage->setIndexPolicy( $policy['index'] );
+		$outputPage->getMetadata()->setIndexPolicy( $policy['index'] );
 		$outputPage->setFollowPolicy( $policy['follow'] );
 
 		$hookResult = $this->getHookRunner()->onBeforeDisplayNoArticleText( $this );
@@ -2011,7 +2011,7 @@ class Article implements Page {
 	 * @param UserIdentity|null $user The relevant user
 	 * @return ParserOutput|false ParserOutput or false if the given revision ID is not found
 	 */
-	public function getParserOutput( $oldid = null, UserIdentity $user = null ) {
+	public function getParserOutput( $oldid = null, ?UserIdentity $user = null ) {
 		if ( $user === null ) {
 			$parserOptions = $this->getParserOptions();
 		} else {

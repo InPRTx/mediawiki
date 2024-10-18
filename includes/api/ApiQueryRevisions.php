@@ -22,11 +22,11 @@
 
 namespace MediaWiki\Api;
 
-use ChangeTags;
 use MediaWiki\CommentFormatter\CommentFormatter;
 use MediaWiki\Content\IContentHandlerFactory;
 use MediaWiki\Content\Renderer\ContentRenderer;
 use MediaWiki\Content\Transform\ContentTransformer;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\PageIdentity;
 use MediaWiki\ParamValidator\TypeDef\UserDef;
 use MediaWiki\Parser\ParserFactory;
@@ -110,7 +110,7 @@ class ApiQueryRevisions extends ApiQueryRevisionsBase {
 		$this->titleFormatter = $titleFormatter;
 	}
 
-	protected function run( ApiPageSet $resultPageSet = null ) {
+	protected function run( ?ApiPageSet $resultPageSet = null ) {
 		$params = $this->extractRequestParams( false );
 
 		// If any of those parameters are used, work in 'enumeration' mode.
@@ -190,7 +190,10 @@ class ApiQueryRevisions extends ApiQueryRevisionsBase {
 		}
 
 		if ( $this->fld_tags ) {
-			$this->addFields( [ 'ts_tags' => ChangeTags::makeTagSummarySubquery( 'revision' ) ] );
+			$this->addFields( [
+				'ts_tags' => MediaWikiServices::getInstance()->getChangeTagsStore()
+					->makeTagSummarySubquery( 'revision' )
+			] );
 		}
 
 		if ( $params['tag'] !== null ) {
