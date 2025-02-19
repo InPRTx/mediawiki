@@ -168,6 +168,8 @@ For notes on 1.43.x and older releases, see HISTORY.
 
 * The list=blocks API now accepts a `parsedreason` parameter to get the block
   reason as parsed HTML.
+* (T357846) siteinfo now lists all user groups and granted permissions,
+  including those from $wgGroupInheritsPermissions.
 * …
 
 === Action API internal changes in 1.44 ===
@@ -236,6 +238,8 @@ because of Phabricator reports.
 * The MediaWiki\Config\MutableConfig interface now extends
   MediaWiki\Config\Config. Implementing MutableConfig without implementing
   Config is no longer possible.
+* The `MediaWiki\User\Registration\IUserRegistrationProvider` interface now
+  defines a required fetchRegistrationBatch() method.
 * The hook OutputPageMakeCategoryLinks, deprecated in 1.43, has been removed.
 * The methods Skin::getFooterIcons and ::makeFooterIcon are final and
   overriding is no longer supported.
